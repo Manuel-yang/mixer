@@ -1,43 +1,72 @@
 pragma circom 2.0.0;
 
 include "./getMerkleRoot.circom";
-include "./circuits/mimc.circom";
+include "./circuits/pedersen.circom";
 include "./circuits/bitify.circom";
 
 
-
-template Withdraw(k) {
-    signal input root;
-    signal input nullifierHash;
-
+// computes Pedersen(nullifier + secret)
+template CommitmentHasher() {
+    signal input nullifier;
     signal input secret;
-    signal input paths2_root[k];
-    signal input paths2_root_pos[k];
+    signal output commitment;
+    signal output nullifierHash;
 
-    component leaf = MiMC7(91);
-    leaf.x_in <== secret;
-    leaf.k <== 0;
-
-    component computed_root = GetMerkleRoot(k);
-    computed_root.leaf <== leaf.out;
-
-    for (var w = 0; w < k; w++) {
-        computed_root.paths2_root[w] <== paths2_root[w];
-        computed_root.paths2_root_pos[w] <== paths2_root_pos[w];
-    }
-    log(computed_root.out);
-    root === computed_root.out;
-
-    component cmt_index = Bits2Num(k);
-    for ( var i = 0; i < k; i++) {
-        cmt_index.in[i] <== paths2_root_pos[i];
+    component commitmentHasher = Pedersen(496);
+    component nullifierHasher = Pedersen(248);
+    component nullifierBits = Num2Bits(248);
+    component secretBits = Num2Bits(248);
+    nullifierBits.in <== nullifier;
+    secretBits.in <== secret;
+    for (var i = 0; i < 248; i++) {
+        nullifierHasher.in[i] <== nullifierBits.out[i];
+        commitmentHasher.in[i] <== nullifierBits.out[i];
+        commitmentHasher.in[i + 248] <== secretBits.out[i];
     }
 
-    component nullifier = MiMC7(91);
-    nullifier.x_in <== cmt_index.out;
-    nullifier.k <== secret;
-
-    nullifierHash === nullifier.out;
+    commitment <== commitmentHasher.out[0];
+    nullifierHash <== nullifierHasher.out[0];
 }
 
-component main{public [root, nullifierHash]} = Withdraw(8);
+// Verifies that commitment that corresponds to given secret and nullifier is included in the merkle tree of deposits
+template Withdraw(levels) {
+    signal input root;
+    signal input nullifierHash;
+    signal input recipient;
+    signal input relayer;
+    signal input fee;
+    signal input refund;
+    signal input nullifier;
+    signal input secret;
+    signal input pathElements[levels];
+    signal input pathIndices[levels];
+
+    component hasher = CommitmentHasher();
+    hasher.nullifier <== nullifier;
+    hasher.secret <== secret;
+    hasher.nullifierHash === nullifierHash;
+
+    component tree = MerkleTreeChecker(levels);
+    tree.leaf <== hasher.commitment;
+    tree.root <== root;
+    for (var i = 0; i < levels; i++) {
+        tree.pathElements[i] <== pathElements[i];
+        tree.pathIndices[i] <== pathIndices[i];
+    }
+
+
+    // Add hidden signals to make sure that tampering with recipient or fee will invalidate the snark proof
+    // Most likely it is not required, but it's better to stay on the safe side and it only takes 2 constraints
+    // Squares are used to prevent optimizer from removing those constraints
+    signal recipientSquare;
+    signal feeSquare;
+    signal relayerSquare;
+    signal refundSquare;
+    recipientSquare <== recipient * recipient;
+    feeSquare <== fee * fee;
+    relayerSquare <== relayer * relayer;
+    refundSquare <== refund * refund;
+}
+
+component main{public [root, nullifierHash, recipient, relayer, fee, refund]} = Withdraw(20);
+

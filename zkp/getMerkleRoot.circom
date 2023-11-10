@@ -8,7 +8,7 @@ template HashLeftRight() {
     signal input right;
     signal output hash;
 
-    component hasher = MiMCSponge(2, 1);
+    component hasher = MiMCSponge(2,220, 1);
     hasher.ins[0] <== right;
     hasher.ins[1] <== right;
     hasher.k <== 0;
@@ -20,7 +20,7 @@ template DualMux() {
     signal input s;
     signal output out[2];
 
-    s * (1 - s) === 0
+    s * (1 - s) === 0;
     out[0] <== (in[1] - in[0]) * s + in[0];
     out[1] <== (in[0] - in[1]) * s + in[1];
 }
@@ -34,7 +34,7 @@ template MerkleTreeChecker(levels) {
     signal input pathIndices[levels];
 
     component selectors[levels];
-    component hasher[levels];
+    component hashers[levels];
 
     for (var i = 0; i < levels; i++) {
         selectors[i] = DualMux();
@@ -44,7 +44,7 @@ template MerkleTreeChecker(levels) {
 
         hashers[i] = HashLeftRight();
         hashers[i].left <== selectors[i].out[0];
-        hashers[i].right <== selectors[i].out[i];
+        hashers[i].right <== selectors[i].out[1];
     }
 
     root === hashers[levels - 1].hash;
