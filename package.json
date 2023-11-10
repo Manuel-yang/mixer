@@ -1,0 +1,14 @@
+{
+  "name": "hardhat-project",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@types/circomlibjs": "^0.1.6"
+  },
+  "dependencies": {
+    "bignumber.js": "^9.1.2",
+    "bn.js": "^5.2.1",
+    "circomlibjs": "^0.1.7",
+    "ethers": "^5.7.2",
+    "snarkjs": "^0.7.2"
+  }
+}

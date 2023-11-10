@@ -1125,6 +1125,14 @@ Fr_copy(aux_dest,&expaux[0]);
 }
 Fr_lt(&expaux[0],&lvar[1],&circuitConstants[16]); // line circom 24
 }
+{
+char* temp = Fr_element2str(&ctx->signalValues[ctx->componentMemory[mySubcomponents[1]].signalStart + 0]);
+printf("%s",temp);
+delete [] temp;
+}
+{
+printf("\n");
+}
 Fr_eq(&expaux[0],&signalValues[mySignalStart + 0],&ctx->signalValues[ctx->componentMemory[mySubcomponents[1]].signalStart + 0]); // line circom 29
 if (!Fr_isTrue(&expaux[0])) std::cout << "Failed assert in template/function " << myTemplateName << " line 29. " <<  "Followed trace of components: " << ctx->getTrace(myId) << std::endl;
 assert(Fr_isTrue(&expaux[0]));

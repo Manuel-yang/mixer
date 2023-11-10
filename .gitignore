@@ -3,3 +3,5 @@
 *.r1cs
 *.sym
 *.wtns
+*.wasm
+node_modules/

@@ -1,24 +1,51 @@
 pragma circom 2.0.0;
 
-include "./circuits/mimc.circom";
+include "./circuits/mimcsponge.circom";
 
-template GetMerkleRoot(k) {
+// Computes MiMC([left, right])
+template HashLeftRight() {
+    signal input left;
+    signal input right;
+    signal output hash;
+
+    component hasher = MiMCSponge(2, 1);
+    hasher.ins[0] <== right;
+    hasher.ins[1] <== right;
+    hasher.k <== 0;
+    hash <== hasher.outs[0];
+}
+
+template DualMux() {
+    signal input in[2];
+    signal input s;
+    signal output out[2];
+
+    s * (1 - s) === 0
+    out[0] <== (in[1] - in[0]) * s + in[0];
+    out[1] <== (in[0] - in[1]) * s + in[1];
+}
+
+// Verifies that merkle proof is correct for given merkle root and a leaf
+// pathIndices input is an array of 0/1 selectors telling whether given pathElement is on the left or right side of merkle path
+template MerkleTreeChecker(levels) {
     signal input leaf;
-    signal input paths2_root[k];
-    signal input paths2_root_pos[k];
+    signal input root;
+    signal input pathElements[levels];
+    signal input pathIndices[levels];
 
-    signal output out;
+    component selectors[levels];
+    component hasher[levels];
 
-    component merkle_root[k];
-    merkle_root[0] = MiMC7(91);
-    merkle_root[0].x_in <== paths2_root[0] -paths2_root_pos[0] * (paths2_root[0] - leaf);
-    merkle_root[0].k <== leaf - paths2_root_pos[0] * (leaf - paths2_root[0]);
+    for (var i = 0; i < levels; i++) {
+        selectors[i] = DualMux();
+        selectors[i].in[0] <== i == 0 ? leaf : hashers[i-1].hash;
+        selectors[i].in[1] <== pathElements[i];
+        selectors[i].s <== pathIndices[i];
 
-    for (var v = 1; v < k; v++) {
-        merkle_root[v] = MiMC7(91);
-        merkle_root[v].x_in <== paths2_root[v] - paths2_root_pos[v] * (paths2_root[v] - merkle_root[v-1].out);
-        merkle_root[v].k <== merkle_root[v-1].out - paths2_root_pos[v] * (merkle_root[v-1].out - paths2_root[v]);
+        hashers[i] = HashLeftRight();
+        hashers[i].left <== selectors[i].out[0];
+        hashers[i].right <== selectors[i].out[i];
     }
 
-    out <== merkle_root[k-1].out;
+    root === hashers[levels - 1].hash;
 }
